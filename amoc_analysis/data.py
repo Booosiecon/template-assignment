@@ -177,6 +177,23 @@ def load_dataset(
         ds = load_clean_data().to_dataset(name="MHT")
         return [ds]
 
+    if array_name.lower() == "osnap":
+        download_url = "https://repository.gatech.edu/bitstreams/597db471-e2ea-4109-b1a1-b94451f1b884/download"
+        local_data_dir = Path(__file__).resolve().parent.parent / "data"
+        local_data_dir.mkdir(parents=True, exist_ok=True)
+        
+        file_path = local_data_dir / "osnap.nc"
+        
+        if not file_path.exists() and download_url:
+            print(f"Downloading OSNAP dataset from Georgia Tech repository...")
+            try:
+                urllib.request.urlretrieve(download_url, file_path)
+            except Exception as e:
+                raise FileNotFoundError(f"Failed to download OSNAP file: {e}")
+                
+        ds = xr.open_dataset(file_path)
+        return [ds]
+
     reader = _get_reader(array_name)
     datasets = reader(
         source=source,

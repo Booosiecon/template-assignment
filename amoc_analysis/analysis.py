@@ -9,6 +9,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 import scipy.signal as signal
+from scipy.signal import welch
 import numpy as np
 
 
@@ -617,3 +618,172 @@ def test_compute_confidence_interval():
     # Assert statistical logic: lower bound <= raw PSD <= upper bound
     assert np.all(lower <= dummy_psd)
     assert np.all(upper >= dummy_psd)
+
+
+def report_dataset_info(data_input, var_name: str = "TRANS_DSO") -> None:
+    """Report the record length, sampling interval, and the number/pattern of missing values."""
+
+    if isinstance(data_input, xr.Dataset):
+        series = data_input[var_name]
+    else:
+        series = data_input    # if input format is DataArray
+
+
+    # record length and timespan
+    total_steps = series.sizes.get('TIME', len(series))
+    start_time = pd.to_datetime(series['TIME'].values[0]).strftime('%Y-%m-%d')
+    end_time = pd.to_datetime(series['TIME'].values[-1]).strftime('%Y-%m-%d')
+
+
+    # sampling interval
+    time_diff = pd.to_datetime(series['TIME'].values[1]) - pd.to_datetime(series['TIME'].values[0])
+    total_hours = time_diff.total_seconds() / 3600
+
+    if total_hours >= 24:
+        sampling_interval = f"Approximately {total_hours / 24:.1f} days"
+    else:
+        sampling_interval = f"Approximately {total_hours:.0f} hours"
+
+    # number of missing values
+    nan_count = int(series.isnull().sum().item())
+
+    # report
+    print("*" * 20)
+    print(f"Record length is {total_steps} time steps")
+    print(f"Timespan is from {start_time} to {end_time}")
+    print(f"Sampling Interval is {sampling_interval}")
+    print(f"{nan_count} Missing values")
+
+
+def compute_transport_stats(series: xr.DataArray, var_name: str = "TRANS_DSO") -> dict:
+    """Compute and report the mean, standard deviation and range."""
+
+    mean_val = series.mean().item()
+    std_val = series.std().item()
+    min_val = series.min().item()
+    max_val = series.max().item()
+    transport_range = max_val - min_val
+
+    print(f"Mean: {mean_val:.3f} Sv")
+    print(f"Standard Deviation: {std_val:.3f} Sv")
+    print(f"Minimum: {min_val:.3f} Sv")
+    print(f"Maximum: {max_val:.3f} Sv")
+    print(f"Range: {transport_range:.3f} Sv")
+
+    return {
+        "mean": mean_val,
+        "std": std_val,
+        "min": min_val,
+        "max": max_val,
+        "range": transport_range
+    }
+
+
+
+def calculate_welch_psd(
+    series: xr.DataArray, 
+    fs: float = 24.0, 
+    nperseg: int = None
+) -> tuple:
+    """
+    Compute Welch's Power Spectral Density (PSD) for the time series.
+    fs: sampling frequency. If data is hourly, fs=24.0 means frequency unit is cycles/day.
+    nperseg: length of each segment. Default is set to 90 days of hourly data (24 * 90).
+    """
+
+    # da → numpy array, demean
+    data = series.values
+    data_demean = data - np.mean(data)
+
+    # set the length of each segment
+    if nperseg is None:
+        nperseg = 24 * 90 # 24h*90 → 90 days
+
+    # compute
+    freqs, psd = welch(data_demean, fs = fs, nperseg = nperseg, scaling = 'density')
+
+    return freqs, psd
+
+
+
+
+def verify_with_parseval(
+    series: xr.DataArray, 
+    freqs: np.ndarray, 
+    psd: np.ndarray,
+    tolerance: float
+) -> dict:
+    """Verify the variance budget with Parseval's Theorem."""
+
+    # Time-domain variance of demeaned series
+    data = series.values
+    data_demean = data - np.mean(data)
+    time_variance = np.var(data_demean, ddof = 1)
+
+    # Frequency-domain integral of PSD
+    df = freqs[1] - freqs[0]
+    # freq_integral = np.trapz(psd, freqs)
+    freq_integral = np.trapezoid(psd, freqs)
+
+    print(f"Time-domain Variance is {time_variance:.6f} Sv²")
+    print(f"Frequency-domain Integral (PSD) is {freq_integral:.6f} Sv²")
+
+    # relative error
+    diff = abs(time_variance - freq_integral)
+    rel_error = (diff / time_variance) * 100
+
+    print(f"Difference is {diff:.3f}")
+    print(f"Relative Error is {rel_error:.3f}%")
+
+    # add tolerance test
+    assert rel_error < tolerance * 100, \
+        f"Parseval verification failed! Relative error {rel_error}% exceeds tolerance."
+    print("✅ Test Passed: Parseval's theorem verified successfully!")
+    
+    return {
+        "time_variance": time_variance,
+        "freq_integral": freq_integral,
+        "relative_error": rel_error
+    }
+
+    return {
+        "time_variance": time_variance,
+        "freq_integral": freq_integral,
+        "relative_error": rel_error
+    }
+
+
+def apply_tukey_lowpass_filter(
+    series: xr.DataArray,
+    window_size: int,
+    alpha: float = 0.5
+) -> xr.DataArray:
+    """
+    Apply a low-pass filter using a Tukey window via pandas rolling.
+    window_size: length of the rolling window (e.g., 24 * 30 for a 30-day window).
+    alpha: shape parameter of the Tukey window (0 = rectangular, 1 = hann). Default is 0.5.
+    """
+
+    s_pd = series.to_pandas()
+
+    #
+    weights = signal.windows.tukey(window_size, alpha=alpha)
+    weights /= weights.sum()
+
+    # smoothing by convolution
+    filtered_pd = s_pd.rolling(
+        window=window_size,
+        center=True
+    ).apply(lambda x: np.dot(x, weights), raw=True)
+
+    # filter NaNs at the ends
+    filtered_series = xr.DataArray(
+        filtered_pd,
+        dims=series.dims,
+        coords=series.coords
+    )
+
+    # drop NaNs due to window convolution
+    filtered_series = filtered_series.dropna(dim="TIME")
+    
+    return filtered_series
