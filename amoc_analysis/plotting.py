@@ -1,12 +1,25 @@
-from pathlib import Path
-from typing import Any, Tuple, Union
-
 import matplotlib.pyplot as plt
 import xarray as xr
+import scipy.signal as signal
+import scipy.stats
+from scipy.stats import gaussian_kde
+import numpy as np
+import pandas as pd
 from pandas import DataFrame
 from pandas.io.formats.style import Styler
 
-import numpy as np
+from pathlib import Path
+
+from functools import wraps
+from typing import Any, Callable, Dict, List, Optional, Union, Tuple
+from urllib.parse import urlparse
+
+import requests
+
+
+
+
+
 
 
 def plot_monthly_transport(
@@ -260,173 +273,6 @@ def calculate_and_plot_trend(amoc_annual_series: xr.DataArray, figsize=(15, 5.5)
     
     return {"slope": slope, "p_value": p_value, "total_change": slope * len(x_data)}
 
-
-import matplotlib.pyplot as plt
-import xarray as xr
-
-def plot_mht_timeseries(series: xr.DataArray, mean_val: float, std_val: float) -> None:
-    """Plot the beautiful publication-quality time series of MHT with its mean and deviation.
-
-    Parameters
-    ----------
-    series : xr.DataArray
-        The cleaned MHT time series array.
-    mean_val : float
-        The pre-calculated temporal mean value.
-    std_val : float
-        The pre-calculated standard deviation value.
-    """
-    # Extract coordinate values and data arrays safely
-    times = series['TIME'].values
-    mht_values = series.values
-
-    # Configure professional academic font styling
-    plt.rcParams['font.family'] = 'serif'
-    plt.rcParams['font.serif'] = ['Times New Roman'] + plt.rcParams['font.serif']
-    plt.rcParams['mathtext.fontset'] = 'stix'
-
-    # Initialize the canvas
-    plt.figure(figsize=(15, 4.5), dpi=300)
-
-    # Plot 1: Fluctuation time series line and dots
-    plt.plot(times, mht_values, color='#2c3e50', linestyle='-', linewidth=1.5,
-             marker='o', markersize=3.5, markerfacecolor='#16a085', markeredgecolor='#2c3e50', markeredgewidth=0.5,
-             label='MHT at 35°N (Sample Mean)')
-
-    # Plot 2: Horizontal line representing the temporal mean
-    plt.axhline(y=mean_val, color='#555555', linestyle='--', linewidth=1.2, 
-                label=rf'Temporal Mean ($\mu$ = {mean_val:.4f} PW)')
-
-    # Plot 3: Shaded boundary representing one standard deviation span
-    plt.fill_between(times, mean_val - std_val, mean_val + std_val, 
-                     color='#bdc3c7', alpha=0.15, label=rf'Standard Deviation ($\sigma$ = $\pm${std_val:.4f} PW)')
-
-    # Canvas decorations and styling
-    plt.title('Part A: Time Series of MHT at 35°N (CALAFAT 2025)', fontsize=12, fontweight='bold', pad=15)
-    plt.xlabel('Time (Calendar Year)', fontsize=10, labelpad=8)
-    plt.ylabel('Meridional Heat Transport (PW)', fontsize=10, labelpad=8)
-    plt.grid(True, linestyle=':', alpha=0.5, color='#999999')
-
-    # Legend rendering
-    plt.legend(loc='lower right', frameon=True, facecolor='white', edgecolor='#e0e0e0', fontsize=9)
-
-    plt.tight_layout()
-    plt.show()
-
-
-
-
-
-def plot_filtered_comparison(raw_series: xr.DataArray, filtered_series: xr.DataArray) -> None:
-    """Plot the comparison between the raw MHT series and the Tukey low-pass filtered series.
-
-    Parameters
-    ----------
-    raw_series : xr.DataArray
-        The original cleaned time series.
-    filtered_series : xr.DataArray
-        The time series after applying the Tukey filter.
-    """
-    # Configure professional academic font styling
-    plt.rcParams['font.family'] = 'serif'
-    plt.rcParams['font.serif'] = ['Times New Roman'] + plt.rcParams['font.serif']
-    plt.rcParams['mathtext.fontset'] = 'stix'
-
-    plt.figure(figsize=(15, 4.5), dpi=300)
-
-    # 1. Plot raw data as background reference
-    plt.plot(raw_series['TIME'].values, raw_series.values, 
-             color='#555555', alpha=0.4, linestyle='-', linewidth=1.2,
-             label=r'Raw MHT ($f_s  =  4.0\ \mathrm{yr}^{-1}$)')
-
-    # 2. Plot Tukey filtered data as the prominent headline feature
-    # Dropna only happens during plotting to show a continuous clean line
-    clean_filt = filtered_series.dropna(dim='TIME')
-    plt.plot(clean_filt['TIME'].values, clean_filt.values, 
-             color='#16a085', linestyle='-', linewidth=2.5,
-             label='Filtered MHT (Tukey Window = 3 yr)'
-    )
-
-    # Styling and labeling
-    plt.title("Part B: MHT Structural Variation and Low-Pass Filtering (CALAFAT 2025)", 
-              fontsize=12, fontweight='bold', pad=15)
-    plt.xlabel('Time (Calendar Year)', fontsize=10, labelpad=8)
-    plt.ylabel('Meridional Heat Transport (PW)', fontsize=10, labelpad=8)
-    plt.grid(True, linestyle=':', alpha=0.5, color='#999999')
-
-    # Legend at lower right as requested
-    plt.legend(loc='lower right', frameon=True, facecolor='white', edgecolor='#e0e0e0', fontsize=9)
-
-    plt.tight_layout()
-    plt.show()
-
-
-
-
-
-
-def plot_power_spectrum(frequencies: np.ndarray, psd_raw: np.ndarray, psd_filt: np.ndarray) -> None:
-    """Plot the professional Power Spectral Density (PSD) with log scale matching the draft template.
-
-    Parameters
-    ----------
-    frequencies : np.ndarray
-        Frequency array from spectral analysis.
-    psd_raw : np.ndarray
-        Power spectral density values of the raw series.
-    psd_filt : np.ndarray
-        Power spectral density values of the filtered series.
-    """
-    plt.rcParams['font.family'] = 'serif'
-    plt.rcParams['font.serif'] = ['Times New Roman'] + plt.rcParams['font.serif']
-    plt.rcParams['mathtext.fontset'] = 'stix'
-
-    plt.figure(figsize=(15, 4.5), dpi=300)
-
-    # 1. Plot Raw Spectrum (Grey Line)
-    plt.plot(frequencies, psd_raw, color='#95a5a6', alpha=0.7, linestyle='-', linewidth=1.5,
-             label='Raw Spectrum')
-
-    # 2. Plot Filtered Spectrum (Red Line)
-    plt.plot(frequencies, psd_filt, color='#c0392b', linestyle='-', linewidth=2.0,
-             label='Filtered Spectrum')
-
-    # 3. Add Annual Cycle Reference Line at f = 1.0 yr^-1
-    plt.axvline(x=1.0, color='#555555', linestyle=':', linewidth=1.2, 
-                label=r'Annual Cycle ($f = 1.0\ \mathrm{yr}^{-1}$)')
-
-    # 4. Turn on Logarithmic Scale for Y-axis to match the draft precisely
-    plt.yscale('log')
-
-    # Styling and labeling
-    plt.title("MHT Power Spectral Density (Welch's Method)", fontsize=12, fontweight='bold', pad=15)
-    plt.xlabel('Frequency (cycles per year)', fontsize=10, labelpad=8)
-    plt.ylabel(r'Power Spectral Density ($PW^2 / \mathrm{cyc} \cdot \mathrm{yr}^{-1}$)', fontsize=10, labelpad=8)
-    plt.grid(True, which="both", linestyle=':', alpha=0.4, color='#999999')
-    
-    # Legend position
-    plt.legend(loc='lower left', frameon=True, facecolor='white', edgecolor='#e0e0e0', fontsize=9)
-
-    plt.tight_layout()
-    plt.show()
-
-
-
-
-
-
-from functools import wraps
-from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Union, Tuple
-from urllib.parse import urlparse
-
-import requests
-import xarray as xr
-import pandas as pd
-import matplotlib.pyplot as plt
-
-import scipy.signal as signal
-import numpy as np
 
 
 # Various conversions from the key to units_name with the multiplicative conversion factor
@@ -962,28 +808,44 @@ def plot_power_spectrum_with_ci(frequencies: np.ndarray, psd_raw: np.ndarray, ps
     plt.show()
 
 
+
+
 def plot_transport_distribution(
         series: xr.DataArray,
          mean_val: float, 
          var_name: str,
-) -> None:
+         dpi = 600,
+):
     """Plot the probability distribution histogram for the given transport timeseries."""
 
-    plt.figure(figsize = (9, 5))
+    fig, ax = plt.subplots(figsize=(9, 5), dpi = dpi)
+
+    # filter NaNs
+    clean_series = series.values[~np.isnan(series.values)]
 
     # Plot histogram
-    series.plot.hist(bins = 100, density = True, alpha  =0.75, color = 'tab:blue', edgecolor = 'black', linewidth = 0.5)
+    ax.hist(clean_series, bins = 100, density = True, alpha = 0.6, color = '#acaaa9', edgecolor = '#626160', linewidth = 0.5, label = 'Histogram')
+
+    # KDE linear line
+    mu, std = scipy.stats.norm.fit(clean_series)
+    xmin, xmax = ax.get_xlim()
+    x_vals = np.linspace(xmin, xmax, 500)
+    p = scipy.stats.norm.pdf(x_vals, mu, std)
+    ax.plot(x_vals, p, color = '#3d4447', linewidth = 1.5, label = f'Gaussian Fit ($\\mu$ = {mu:.2f}, $\\sigma$ = {std:.2f})')
     
     # Mark mean line
-    plt.axvline(mean_val, color = 'red', linestyle = '--', linewidth = 1.8, label = f'Mean: {mean_val:.2f} Sv')
+    mean_peak_y = scipy.stats.norm.pdf(mean_val, mu, std)
+    ax.vlines(x = mean_val, ymin = 0, ymax = mean_peak_y, color = 'red', linestyle = '--', linewidth = 1.8, label = f'Mean: {mean_val:.2f} Sv')
 
-    plt.title(f"Frequency Distribution of {var_name} Transport", fontsize = 16)
-    plt.xlabel("Volume Transport (Sv)", fontsize = 14)
-    plt.ylabel("Density", fontsize = 14)
-    plt.legend(fontsize= 14)
-    plt.grid(True, linestyle = ':', alpha = 0.6)
-    plt.tight_layout()
-    plt.show()
+
+    ax.set_title(f"Frequency Distribution of {var_name} Transport", fontsize = 16)
+    ax.set_xlabel("Volume Transport (Sv)", fontsize = 14)
+    ax.set_ylabel("Density", fontsize = 14)
+    ax.legend(loc = "best", fontsize= 10)
+    ax.grid(True, linestyle = ':', alpha = 0.6)
+    fig.tight_layout()
+
+    return fig, ax
 
 
 
@@ -992,10 +854,11 @@ def plot_welch_psd(
     psd, 
     var_name: str,
     scale_type: str,
-) -> None:
+    dpi = 600,
+):
     """Plot Welch's Power Spectral Density using a log-log or semi-log scale."""
 
-    plt.figure(figsize = (9, 5))
+    fig, ax = plt.subplots(figsize = (9, 5), dpi = dpi)
 
     # filter freq ≤ 0 data
     mask = freqs > 0
@@ -1005,23 +868,24 @@ def plot_welch_psd(
 
     # log-log or semilog
     if scale_type == "log-log":
-        plt.loglog(f_plot, psd_plot, color='darkblue', linewidth=1.2, label='Welch PSD (Log-Log)')
+        ax.loglog(f_plot, psd_plot, color='darkblue', linewidth=1.2, label='Welch PSD (Log-Log)')
         title_suffix = " (Log-Log Scale)"
     elif scale_type == "semilog":
-        plt.semilogy(f_plot, psd_plot, color='darkred', linewidth=1.2, label='Welch PSD (Semi-Log)')
+        ax.semilogy(f_plot, psd_plot, color='darkred', linewidth=1.2, label='Welch PSD (Semi-Log)')
         title_suffix = " (Semi-Log Scale)"
     else:
         raise ValueError("scale_type must be 'log-log' or 'semilog'")
 
     
-    plt.title(f"Welch's Power Spectral Density of {var_name}", fontsize = 16)
-    plt.xlabel("Frequency (cycles/day)", fontsize = 14)
-    plt.ylabel(r"PSD [Sv$^2$ / (cycles/day)]", fontsize = 14)
+    ax.set_title(f"Welch's Power Spectral Density of {var_name}", fontsize = 16)
+    ax.set_xlabel("Frequency (cycles/day)", fontsize = 14)
+    ax.set_ylabel(r"PSD [Sv$^2$ / (cycles/day)]", fontsize = 14)
     
-    plt.grid(True, which = "both", linestyle = ":", alpha = 0.6)
-    plt.legend(fontsize = 10)
-    plt.tight_layout()
-    plt.show()
+    ax.grid(True, which = "both", linestyle = ":", alpha = 0.6)
+    ax.legend(fontsize = 10)
+    fig.tight_layout()
+
+    return fig, ax
 
 
 
@@ -1029,24 +893,26 @@ def plot_filtered_comparison(
     original_series, 
     filtered_series, 
     var_name,
+    dpi = 600,
 ):
     """
     Figure 1: Overlay original and filtered time series.
     """
 
-    plt.figure(figsize = (12, 5))
+    fig, ax = plt.subplots(figsize = (12, 5), dpi = dpi)
 
-    plt.plot(original_series['TIME'].values, original_series.values, color = 'lightblue', alpha = 0.6, label = 'Original (Hourly)')
-    plt.plot(filtered_series['TIME'].values, filtered_series.values, color = 'darkred', linewidth = 1.5, label = 'Tukey Filtered (Low-pass)')
+    ax.plot(original_series['TIME'].values, original_series.values, color = 'lightblue', alpha = 0.6, label = 'Original (Hourly)')
+    ax.plot(filtered_series['TIME'].values, filtered_series.values, color = 'darkred', linewidth = 1.5, label = 'Tukey Filtered (Low-pass)')
     
-    plt.title(f"Time Series Comparison of Original and Low-Pass Filtered {var_name}", fontsize = 16)
-    plt.xlabel("Time", fontsize = 14)
-    plt.ylabel("Volume Transport (Sv)", fontsize = 14)
-    plt.legend(fontsize = 14)
-    plt.grid(True, linestyle = ':', alpha = 0.6)
+    ax.set_title(f"Time Series Comparison of Original and Low-Pass Filtered {var_name}", fontsize = 16)
+    ax.set_xlabel("Time", fontsize = 14)
+    ax.set_ylabel("Volume Transport (Sv)", fontsize = 14)
+    ax.legend(fontsize = 14)
+    ax.grid(True, linestyle = ':', alpha = 0.6)
 
-    plt.tight_layout()
-    plt.show()
+    fig.tight_layout()
+    return fig, ax
+    
 
 
 def plot_psd_comparison(
@@ -1055,49 +921,53 @@ def plot_psd_comparison(
     freqs_filt, 
     psd_filt, 
     var_name,
+    dpi = 600,
 ):
     """
     Figure 2: Overlay original and filtered power spectra (Log-Log scale).
     """
-    plt.figure(figsize=(9, 5))
+    fig, ax = plt.subplots(figsize=(9, 5), dpi = dpi)
     
     mask_o = freqs_orig > 0
     mask_f = freqs_filt > 0
     
-    plt.loglog(freqs_orig[mask_o], psd_orig[mask_o], color = 'lightblue', alpha = 0.7, label = 'Original PSD')
-    plt.loglog(freqs_filt[mask_f], psd_filt[mask_f], color = 'darkred', linewidth = 1.5, label = 'Filtered PSD (Low-pass)')
+    ax.loglog(freqs_orig[mask_o], psd_orig[mask_o], color = 'lightblue', alpha = 0.7, label = 'Original PSD')
+    ax.loglog(freqs_filt[mask_f], psd_filt[mask_f], color = 'darkred', linewidth = 1.5, label = 'Filtered PSD (Low-pass)')
     
-    plt.title(f"PSD Comparison of Original and Filtered {var_name}", fontsize = 16)
-    plt.xlabel("Frequency (cycles/day)", fontsize = 14)
-    plt.ylabel(r"PSD [Sv$^2$ / (cycles/day)]", fontsize = 14)
-    plt.legend(fontsize = 14)
-    plt.grid(True, which = "both", linestyle = ':', alpha = 0.6)
+    ax.set_title(f"PSD Comparison of Original and Filtered {var_name}", fontsize = 16)
+    ax.set_xlabel("Frequency (cycles/day)", fontsize = 14)
+    ax.set_ylabel(r"PSD [Sv$^2$ / (cycles/day)]", fontsize = 14)
+    ax.legend(fontsize = 14)
+    ax.grid(True, which = "both", linestyle = ':', alpha = 0.6)
 
-    plt.tight_layout()
-    plt.show()
+    fig.tight_layout()
+    return fig, ax
 
 
 
 def plot_filter_frequency_responses(
     freqs: np.ndarray, 
     tukey_db: np.ndarray, 
-    boxcar_db: np.ndarray
-) -> None:
+    boxcar_db: np.ndarray,
+    dpi = 600,
+):
     """
     Plot and compare the frequency responses of Tukey and Boxcar windows.
     """
 
-    plt.figure(figsize=(9, 5))
-    plt.plot(freqs, tukey_db, color = 'darkred', linewidth = 2, label = r'Tukey Window ($\alpha=0.5$)')
-    plt.plot(freqs, boxcar_db, color = 'gray', linestyle = '--', linewidth = 1.5, label = 'Boxcar Window (Rectangular)')
+    fig, ax = plt.subplots(figsize=(9, 5), dpi = dpi)
+
+    ax.plot(freqs, tukey_db, color = 'darkred', linewidth = 2, label = r'Tukey Window ($\alpha=0.5$)')
+    ax.plot(freqs, boxcar_db, color = 'gray', linestyle = '--', linewidth = 1.5, label = 'Boxcar Window (Rectangular)')
     
-    plt.title("Filter Frequency Response Comparison (Magnitude)", fontsize = 16)
-    plt.xlabel("Frequency [cycles/day]", fontsize = 14)
-    plt.ylabel("Magnitude [dB]", fontsize = 14)
-    plt.legend(fontsize = 14)
-    plt.grid(True, which = "both", linestyle = ':', alpha = 0.6)
-    plt.tight_layout()
-    plt.show()
+    ax.set_title("Filter Frequency Response Comparison (Magnitude)", fontsize = 16)
+    ax.set_xlabel("Frequency [cycles/day]", fontsize = 14)
+    ax.set_ylabel("Magnitude [dB]", fontsize = 14)
+    ax.legend(fontsize = 14)
+    ax.grid(True, which = "both", linestyle = ':', alpha = 0.6)
+
+    fig.tight_layout()
+    return fig, ax
 
 
 def plot_psd_with_confidence_interval(
@@ -1105,24 +975,26 @@ def plot_psd_with_confidence_interval(
     psd: np.ndarray, 
     lower_bound: np.ndarray, 
     upper_bound: np.ndarray, 
-    dof: float
-) -> None:
+    dof: float,
+    dpi = 600,
+):
     """
     Plot Welch PSD with Chi-squared 95% confidence interval bands (Log-Log scale).
     """
-    plt.figure(figsize=(9, 5))
+    fig, ax = plt.subplots(figsize=(9, 5), dpi = dpi)
     
     mask = freqs > 0
-    plt.loglog(freqs[mask], psd[mask], color = 'darkblue', linewidth = 1.5, label = 'Welch PSD')
-    plt.loglog(freqs[mask], lower_bound[mask], color = 'gray', linestyle = '--', label = '95% CI Lower Bound')
-    plt.loglog(freqs[mask], upper_bound[mask], color = 'gray', linestyle = '--', label = '95% CI Upper Bound')
-    plt.fill_between(freqs[mask], lower_bound[mask], upper_bound[mask], color = 'gray', alpha = 0.2, label = '95% Confidence Band')
+    ax.loglog(freqs[mask], psd[mask], color = 'darkblue', linewidth = 1.5, label = 'Welch PSD')
+    ax.loglog(freqs[mask], lower_bound[mask], color = 'gray', linestyle = '--', label = '95% CI Lower Bound')
+    ax.loglog(freqs[mask], upper_bound[mask], color = 'gray', linestyle = '--', label = '95% CI Upper Bound')
+    ax.fill_between(freqs[mask], lower_bound[mask], upper_bound[mask], color = 'gray', alpha = 0.2, label = '95% Confidence Band')
     
-    plt.title(f"Welch PSD with Chi-Squared Confidence Interval (EDF = {dof:.1f})", fontsize = 16)
-    plt.xlabel("Frequency (cycles/day)", fontsize = 14)
-    plt.ylabel(r"PSD [Sv$^2$ / (cycles/day)]", fontsize = 14)
-    plt.legend(fontsize = 14)
-    plt.grid(True, which = "both", linestyle = ':', alpha = 0.6)
-    plt.tight_layout()
-    plt.show()
+    ax.set_title(f"Welch PSD with Chi-Squared Confidence Interval (EDF = {dof:.1f})", fontsize = 16)
+    ax.set_xlabel("Frequency (cycles/day)", fontsize = 14)
+    ax.set_ylabel(r"PSD [Sv$^2$ / (cycles/day)]", fontsize = 14)
+    ax.legend(fontsize = 14)
+    ax.grid(True, which = "both", linestyle = ':', alpha = 0.6)
+
+    fig.tight_layout()
+    return fig, ax
 

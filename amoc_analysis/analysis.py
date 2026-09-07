@@ -697,7 +697,7 @@ def calculate_welch_psd(
 
     # set the length of each segment
     if nperseg is None:
-        nperseg = 24 * 90 # 24h*90 → 90 days
+        nperseg = 24 * 100 # 24h*90 → 90 days
 
     # compute
     freqs, psd = welch(data_demean, fs = fs, nperseg = nperseg, scaling = 'density')
