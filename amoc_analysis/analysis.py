@@ -746,11 +746,7 @@ def verify_with_parseval(
         "relative_error": rel_error
     }
 
-    return {
-        "time_variance": time_variance,
-        "freq_integral": freq_integral,
-        "relative_error": rel_error
-    }
+
 
 
 def apply_tukey_lowpass_filter(

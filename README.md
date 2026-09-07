@@ -25,14 +25,16 @@ amoc-analysis/
 ├── GETTING_STARTED.md         # Step-by-step guide for beginners
 ├── INSTRUCTIONS.md            # Detailed project structure explanation
 ├── writeup.md                 # write-up
-└── ⭐Assignment1_Report.pdf      # pdf version of writeup.md
+└── ⭐Assignment1_Report_Remake.pdf      # pdf version of writeup.md
 ```
 
 ## ✅ Aim
 
-- Load DSO timeseris from AMOCatlas and describe it quantitatively — its basic time-domain statistics and its spectrum. 
+- Load the DSO transport timeseries and fill its NaN positions. Plot a Frequency distribution figure to illustrate the volume distribution.
 
-- Reuse and extend the starter code from the spectra & filtering lecture, and submit a small, tested, reproducible analysis.
+- Compute and plot a power spectrum of DSO transport using Welch's overlapped-segment averaging. Furthermore, verify the variance budget with Parseval and apply a low-pass filter on the original timeseries, plot a timeseries and a power spectrum to compare the original one and the filtered one.
+
+- Apply two different windows and see which one has a better ability to suppress the sidelobes. Add a chi-squared confidence band to the spectrum with EDF.
 
 
 ## ⏳ Data 

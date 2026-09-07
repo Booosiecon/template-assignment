@@ -858,7 +858,7 @@ def plot_welch_psd(
 ):
     """Plot Welch's Power Spectral Density using a log-log or semi-log scale."""
 
-    fig, ax = plt.subplots(figsize = (9, 5), dpi = dpi)
+    fig, ax = plt.subplots(figsize = (9, 4), dpi = dpi)
 
     # filter freq ≤ 0 data
     mask = freqs > 0
@@ -868,10 +868,10 @@ def plot_welch_psd(
 
     # log-log or semilog
     if scale_type == "log-log":
-        ax.loglog(f_plot, psd_plot, color='darkblue', linewidth=1.2, label='Welch PSD (Log-Log)')
+        ax.loglog(f_plot, psd_plot, color="#8293be", linewidth=1.2, label='Welch PSD (Log-Log)')
         title_suffix = " (Log-Log Scale)"
     elif scale_type == "semilog":
-        ax.semilogy(f_plot, psd_plot, color='darkred', linewidth=1.2, label='Welch PSD (Semi-Log)')
+        ax.semilogy(f_plot, psd_plot, color="#8293be", linewidth=1.2, label='Welch PSD (Semi-Log)')
         title_suffix = " (Semi-Log Scale)"
     else:
         raise ValueError("scale_type must be 'log-log' or 'semilog'")
@@ -882,7 +882,7 @@ def plot_welch_psd(
     ax.set_ylabel(r"PSD [Sv$^2$ / (cycles/day)]", fontsize = 14)
     
     ax.grid(True, which = "both", linestyle = ":", alpha = 0.6)
-    ax.legend(fontsize = 10)
+    ax.legend(fontsize = 12)
     fig.tight_layout()
 
     return fig, ax
@@ -902,9 +902,9 @@ def plot_filtered_comparison(
     fig, ax = plt.subplots(figsize = (12, 5), dpi = dpi)
 
     ax.plot(original_series['TIME'].values, original_series.values, color = 'lightblue', alpha = 0.6, label = 'Original (Hourly)')
-    ax.plot(filtered_series['TIME'].values, filtered_series.values, color = 'darkred', linewidth = 1.5, label = 'Tukey Filtered (Low-pass)')
+    ax.plot(filtered_series['TIME'].values, filtered_series.values, color = "#e37b35", linewidth = 1.5, label = 'Tukey Filtered (Low-pass)')
     
-    ax.set_title(f"Time Series Comparison of Original and Low-Pass Filtered {var_name}", fontsize = 16)
+    ax.set_title(f"Timeseries Comparison of Original and Low-Pass Filtered {var_name}", fontsize = 16)
     ax.set_xlabel("Time", fontsize = 14)
     ax.set_ylabel("Volume Transport (Sv)", fontsize = 14)
     ax.legend(fontsize = 14)
@@ -921,6 +921,7 @@ def plot_psd_comparison(
     freqs_filt, 
     psd_filt, 
     var_name,
+    scale,
     dpi = 600,
 ):
     """
@@ -931,10 +932,26 @@ def plot_psd_comparison(
     mask_o = freqs_orig > 0
     mask_f = freqs_filt > 0
     
-    ax.loglog(freqs_orig[mask_o], psd_orig[mask_o], color = 'lightblue', alpha = 0.7, label = 'Original PSD')
-    ax.loglog(freqs_filt[mask_f], psd_filt[mask_f], color = 'darkred', linewidth = 1.5, label = 'Filtered PSD (Low-pass)')
-    
-    ax.set_title(f"PSD Comparison of Original and Filtered {var_name}", fontsize = 16)
+    ax.plot(freqs_orig[mask_o], psd_orig[mask_o], color = 'lightblue', alpha = 0.7, label = 'Original PSD')
+    ax.plot(freqs_filt[mask_f], psd_filt[mask_f], color = '#e37b35', linewidth = 1.5, label = 'Filtered PSD (30-Day Low-Pass)')
+
+    # log-log or semilog
+    if scale == 'loglog':
+        ax.set_xscale('log')
+        ax.set_yscale('log')
+    elif scale == 'semilogy':
+        ax.set_xscale('linear')
+        ax.set_yscale('log')
+    elif scale == 'semilogx':
+        ax.set_xscale('log')
+        ax.set_yscale('linear')
+    elif scale == 'linear':
+        ax.set_xscale('linear')
+        ax.set_yscale('linear')
+    else:
+        raise ValueError("scale must be one of 'loglog', 'semilogy', 'semilogx', 'linear'")
+
+    ax.set_title(f"PSD Comparison of Original and Low-Pass Filtered {var_name}", fontsize = 16)
     ax.set_xlabel("Frequency (cycles/day)", fontsize = 14)
     ax.set_ylabel(r"PSD [Sv$^2$ / (cycles/day)]", fontsize = 14)
     ax.legend(fontsize = 14)
@@ -955,15 +972,15 @@ def plot_filter_frequency_responses(
     Plot and compare the frequency responses of Tukey and Boxcar windows.
     """
 
-    fig, ax = plt.subplots(figsize=(9, 5), dpi = dpi)
+    fig, ax = plt.subplots(figsize=(9, 4), dpi = dpi)
 
-    ax.plot(freqs, tukey_db, color = 'darkred', linewidth = 2, label = r'Tukey Window ($\alpha=0.5$)')
-    ax.plot(freqs, boxcar_db, color = 'gray', linestyle = '--', linewidth = 1.5, label = 'Boxcar Window (Rectangular)')
+    ax.plot(freqs, tukey_db, color = '#de7c7d', linewidth = 2, label = r'Tukey Window ($\alpha=0.5$)')
+    ax.plot(freqs, boxcar_db, color = '#8eafd4', linestyle = '--', linewidth = 1.5, label = r'Boxcar Window ($\alpha=0$)')
     
     ax.set_title("Filter Frequency Response Comparison (Magnitude)", fontsize = 16)
-    ax.set_xlabel("Frequency [cycles/day]", fontsize = 14)
-    ax.set_ylabel("Magnitude [dB]", fontsize = 14)
-    ax.legend(fontsize = 14)
+    ax.set_xlabel("Frequency (cycles/day)", fontsize = 14)
+    ax.set_ylabel("Magnitude (dB)", fontsize = 14)
+    ax.legend(fontsize = 12)
     ax.grid(True, which = "both", linestyle = ':', alpha = 0.6)
 
     fig.tight_layout()
@@ -981,20 +998,50 @@ def plot_psd_with_confidence_interval(
     """
     Plot Welch PSD with Chi-squared 95% confidence interval bands (Log-Log scale).
     """
-    fig, ax = plt.subplots(figsize=(9, 5), dpi = dpi)
+    fig, ax = plt.subplots(figsize=(9, 4), dpi = dpi)
     
     mask = freqs > 0
-    ax.loglog(freqs[mask], psd[mask], color = 'darkblue', linewidth = 1.5, label = 'Welch PSD')
-    ax.loglog(freqs[mask], lower_bound[mask], color = 'gray', linestyle = '--', label = '95% CI Lower Bound')
-    ax.loglog(freqs[mask], upper_bound[mask], color = 'gray', linestyle = '--', label = '95% CI Upper Bound')
-    ax.fill_between(freqs[mask], lower_bound[mask], upper_bound[mask], color = 'gray', alpha = 0.2, label = '95% Confidence Band')
+    ax.semilogy(freqs[mask], psd[mask], color = '#f27830', linewidth = 1.5, label = 'Welch PSD')
+    ax.semilogy(freqs[mask], lower_bound[mask], color = 'gray', linewidth = 0.8, linestyle = '--', label = '95% CI Lower Bound')
+    ax.semilogy(freqs[mask], upper_bound[mask], color = 'gray', linewidth = 0.8, linestyle = '--', label = '95% CI Upper Bound')
+    ax.fill_between(freqs[mask], lower_bound[mask], upper_bound[mask], color = '#fcd5b4', alpha = 0.2, label = '95% Confidence Band')
     
-    ax.set_title(f"Welch PSD with Chi-Squared Confidence Interval (EDF = {dof:.1f})", fontsize = 16)
+    ax.set_title(f"Welch's PSD with Chi-Squared Confidence Interval (EDF = {dof:.1f})", fontsize = 16)
     ax.set_xlabel("Frequency (cycles/day)", fontsize = 14)
-    ax.set_ylabel(r"PSD [Sv$^2$ / (cycles/day)]", fontsize = 14)
-    ax.legend(fontsize = 14)
+    ax.set_ylabel(r"PSD [Sv$^2$ / (cycles/day)]", fontsize = 12)
+    ax.legend(fontsize = 12)
     ax.grid(True, which = "both", linestyle = ':', alpha = 0.6)
 
     fig.tight_layout()
     return fig, ax
 
+
+def plot_psd_with_confidence_interval_zoom_in(
+    freqs: np.ndarray, 
+    psd: np.ndarray, 
+    lower_bound: np.ndarray, 
+    upper_bound: np.ndarray, 
+    dof: float,
+    dpi = 600,
+):
+    """
+    Plot Welch PSD with Chi-squared 95% confidence interval bands (Log-Log scale).
+    """
+    fig, ax = plt.subplots(figsize=(9, 4), dpi = dpi)
+    
+    mask = freqs > 0
+    ax.semilogy(freqs[mask], psd[mask], color = '#f27830', linewidth = 1.5, label = 'Welch PSD')
+    ax.semilogy(freqs[mask], lower_bound[mask], color = 'gray', linewidth = 0.8, linestyle = '--', label = '95% CI Lower Bound')
+    ax.semilogy(freqs[mask], upper_bound[mask], color = 'gray', linewidth = 0.8, linestyle = '--', label = '95% CI Upper Bound')
+    ax.fill_between(freqs[mask], lower_bound[mask], upper_bound[mask], color = '#fcd5b4', alpha = 0.2, label = '95% Confidence Band')
+    
+    ax.set_title(f"Welch's PSD with Chi-Squared Confidence Interval (EDF = {dof:.1f})", fontsize = 16)
+    ax.set_xlabel("Frequency (cycles/day)", fontsize = 14)
+    ax.set_ylabel(r"PSD [Sv$^2$ / (cycles/day)]", fontsize = 12)
+    ax.set_xlim(1.5, 2.5)          
+    ax.set_ylim(5e-5, 2e-3)
+    ax.legend(fontsize = 12)
+    ax.grid(True, which = "both", linestyle = ':', alpha = 0.6)
+
+    fig.tight_layout()
+    return fig, ax
