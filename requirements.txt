@@ -12,3 +12,16 @@ requests
 
 # AMOC analysis tools
 git+https://github.com/amoccommunity/amocatlas.git@v0.3.0
+
+
+# Jupyter and notebooks
+jupyterlab>=4.0
+nbconvert>=7.8
+
+# Testing
+pytest>=8.0
+pytest-cov>=4.1  # optional
+
+# Code quality
+black>=24.0
+ruff>=0.3

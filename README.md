@@ -18,7 +18,7 @@ amoc-analysis/
 │   ├── test_data.py           # Tests for data loading
 │   ├── test_analysis.py       # Tests for analysis functions
 │   └── test_plotting.py       # Tests for plotting functions
-├── data/                      # Data files (downloaded automatically)
+├── data/                      # no data folder, using read to laod dataset from AMOCatals
 ├── pyproject.toml             # Package configuration
 ├── requirements.txt           # Core dependencies
 ├── requirements-dev.txt       # Development dependencies
